@@ -1,6 +1,7 @@
 # This file is based in Django Class Views
 # adapted for use of mongoengine
 
+from django.views.generic.detail import BaseDetailView
 from django.views.generic.edit import FormMixin, ProcessFormView, DeletionMixin
 from django.core.exceptions import ImproperlyConfigured, ObjectDoesNotExist
 from django.views.generic.base import TemplateResponseMixin, View
@@ -111,18 +112,17 @@ class MongoSingleObjectTemplateResponseMixin(TemplateResponseMixin):
                 self.object.__class__.__name__.lower(),
                 self.template_name_suffix
             ))
-        #elif hasattr(self, 'model') and hasattr(self.model, '_meta'):
-        #    names.append("%s/%s%s.html" % (
-        #        self.model._meta.app_label,
-        #        self.model._meta.object_name.lower(),
-        #        self.template_name_suffix
-        #    ))
+
         return names
 
 class MongoFormMixin(FormMixin, MongoSingleObjectMixin):
     """
     A mixin that provides a way to show and handle a mongo in a request.
     """
+    success_message = None
+    historic_action = None
+    save_permission = None
+
     def get_form_class(self):
         """
         Returns the form class to use in this view
@@ -153,22 +153,23 @@ class MongoFormMixin(FormMixin, MongoSingleObjectMixin):
         return url
 
     def send_messages(self):
-        if hasattr(self, "success_message"):
+        if self.success_message:
             messages.success(self.request,
                              self.success_message % self.object)
 
     def write_historic(self):
-        if hasattr(self, "historic_action"):
+        if self.historic_action:
             self.request.user.register_historic(self.object,
                                                 self.historic_action)
 
     def form_valid(self, form):
-        self.object = form.save()
+        
 
-        if hasattr(self, "save_permission"):
+        if self.save_permission:
             if not self.request.user.has_perm(self.save_permission):
                 return render_to_response('access_denied.html', locals(),
                                           context_instance=RequestContext(self.request))
+        self.object = form.save()
 
         self.write_historic()
         self.send_messages()
@@ -238,9 +239,20 @@ class DeletionMixin(object):
     A mixin providing the ability to delete objects
     """
     success_url = None
+    success_message = None
+    historic_action = None
 
     def delete(self, request, *args, **kwargs):
         self.object = self.get_object()
+        msg = None
+
+        if self.success_message:
+            msg = self.success_message % self.object
+
+        if self.historic_action:
+            self.request.user.register_historic(self.object,
+                                                self.historic_action)
+
         self.object.delete()
         return HttpResponseRedirect(self.get_success_url())
 
@@ -298,6 +310,10 @@ class MongoMultipleObjectTemplateResponseMixin(TemplateResponseMixin):
 
         return names
 
+class DetailView(MongoSingleObjectTemplateResponseMixin, BaseDetailView):
+    template_name_suffix = 'detail'
+    def get_context_data(self, **kwargs):
+        return kwargs
 
 class ListView(MongoMultipleObjectTemplateResponseMixin, BaseListView):
     """
