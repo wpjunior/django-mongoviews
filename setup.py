@@ -18,4 +18,5 @@ setup(
         'Framework :: Django',
     ],
     zip_safe=False,
+    tests_require=['django-mongoforms', 'django==1.3']
 )

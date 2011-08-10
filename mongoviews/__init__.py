@@ -182,8 +182,6 @@ class MongoFormMixin(FormMixin, MongoSingleObjectMixin):
                                                 self.historic_action)
 
     def form_valid(self, form):
-        
-
         if self.save_permission:
             if not self.request.user.has_perm(self.save_permission):
                 return render_to_response('access_denied.html', locals(),
@@ -228,7 +226,6 @@ class CreateView(MongoSingleObjectTemplateResponseMixin, BaseCreateView):
     with a response rendered by template.
     """
     template_name_suffix = 'form'
-
 
 class BaseUpdateView(MongoFormMixin, ProcessFormView):
     """
